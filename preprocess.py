@@ -5,9 +5,9 @@ import os
 import sys
 import re
 import pickle
-import utils
 
-from dictionary import Dictionary
+from seq2seq import utils
+from seq2seq.data.dictionary import Dictionary
 
 SPACE_NORMALIZER = re.compile("\s+")
 

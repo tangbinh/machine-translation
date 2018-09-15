@@ -4,9 +4,9 @@ import pickle
 import torch
 import torch.nn as nn
 import sys
+import preprocess
 
 from collections import defaultdict
-import preprocess
 from torch.serialization import default_restore_location
 
 

@@ -5,12 +5,12 @@ import os
 import random
 import torch
 import torch.nn as nn
-import utils
 
 from tqdm import tqdm
-from dictionary import Dictionary
-from dataset import TranslationDataset, BatchSampler
-from model import LSTMModel
+from seq2seq import models, utils
+from seq2seq.data.dictionary import Dictionary
+from seq2seq.data.dataset import Seq2SeqDataset, BatchSampler
+from seq2seq.models import ARCH_MODEL_REGISTRY, ARCH_CONFIG_REGISTRY
 
 
 def get_args():
@@ -27,22 +27,8 @@ def get_args():
     parser.add_argument('--batch-size', default=None, type=int, help='maximum number of sentences in a batch')
     parser.add_argument('--num-workers', default=4, type=int, help='number of data workers')
 
-    """Add model-specific arguments to the parser."""
-    parser.add_argument('--encoder-embed-dim', default=512, type=int, help='encoder embedding dimension')
-    parser.add_argument('--encoder-embed-path', help='path to pre-trained encoder embedding')
-    parser.add_argument('--encoder-hidden-size', default=512, type=int, help='encoder hidden size')
-    parser.add_argument('--encoder-num-layers', default=2, type=int, help='number of encoder layers')
-    parser.add_argument('--encoder-bidirectional', default='True', help='bidirectional encoder')
-    parser.add_argument('--encoder-dropout-in', default=0.1, help='dropout probability for encoder input embedding')
-    parser.add_argument('--encoder-dropout-out', default=0.1, help='dropout probability for encoder output')
-
-    parser.add_argument('--decoder-embed-dim', default=512, type=int, help='decoder embedding dimension')
-    parser.add_argument('--decoder-embed-path', help='path to pre-trained decoder embedding')
-    parser.add_argument('--decoder-hidden-size', default=1024, type=int, help='decoder hidden size')
-    parser.add_argument('--decoder-num-layers', default=1, type=int, help='number of decoder layers')
-    parser.add_argument('--decoder-dropout-in', default=0.1, type=float, help='dropout probability for decoder input embedding')
-    parser.add_argument('--decoder-dropout-out', default=0.1, type=float, help='dropout probability for decoder output')
-    parser.add_argument('--decoder-use-attention', default='True', help='decoder attention')
+    # Add model arguments
+    parser.add_argument('--arch', default='lstm', choices=ARCH_MODEL_REGISTRY.keys(), help='model architecture')
 
     # Add optimization arguments
     parser.add_argument('--max-epoch', default=100, type=int, help='force stop training at specified epoch')
@@ -84,7 +70,7 @@ def main(args):
 
     # Load datasets
     def load_data(split):
-        return TranslationDataset(
+        return Seq2SeqDataset(
             src_file=os.path.join(args.data, '{}.{}'.format(split, args.source_lang)),
             tgt_file=os.path.join(args.data, '{}.{}'.format(split, args.target_lang)),
             src_dict=src_dict, tgt_dict=tgt_dict)
@@ -92,7 +78,7 @@ def main(args):
     valid_dataset = load_data(split='valid')
 
     # Build model and criterion
-    model = LSTMModel(args, src_dict, tgt_dict).cuda()
+    model = models.build_model(args, src_dict, tgt_dict).cuda()
     logging.info('Built a model with {} parameters'.format(sum(p.numel() for p in model.parameters())))
     criterion = nn.CrossEntropyLoss(ignore_index=src_dict.pad_idx, reduction='sum').cuda()
 
@@ -122,10 +108,6 @@ def main(args):
 
             # Forward and backward pass
             output, _ = model(sample['src_tokens'], sample['src_lengths'], sample['tgt_inputs'])
-            if i % 50 == 0:
-                from termcolor import colored
-                print(colored(tgt_dict.string(sample['tgt_tokens'][0]), 'green'))
-                print(colored(tgt_dict.string(output.max(dim=-1)[1][0]), 'blue'))
             loss = criterion(output.view(-1, output.size(-1)), sample['tgt_tokens'].view(-1))
             optimizer.zero_grad()
             loss.backward()
@@ -147,7 +129,7 @@ def main(args):
             # Update statistics for progress bar
             stats['loss'] += total_loss / num_tokens / math.log(2)
             stats['lr'] += optimizer.param_groups[0]['lr']
-            stats['num_tokens'] += num_tokens
+            stats['num_tokens'] += num_tokens / len(sample['src_tokens'])
             stats['batch_size'] += batch_size
             stats['grad_norm'] += grad_norm
             stats['clip'] += 1 if grad_norm > args.clip_norm else 0
@@ -187,7 +169,7 @@ def validate(args, model, criterion, valid_dataset, epoch):
             output, attn_scores = model(sample['src_tokens'], sample['src_lengths'], sample['tgt_inputs'])
             loss = criterion(output.view(-1, output.size(-1)), sample['tgt_tokens'].view(-1))
         stats['valid_loss'] += loss.item() / sample['num_tokens'] / math.log(2)
-        stats['num_tokens'] += sample['num_tokens']
+        stats['num_tokens'] += sample['num_tokens'] / len(sample['src_tokens'])
         stats['batch_size'] += len(sample['src_tokens'])
         progress_bar.set_postfix({key: '{:.3g}'.format(value / (i + 1)) for key, value in stats.items()}, refresh=True)
 

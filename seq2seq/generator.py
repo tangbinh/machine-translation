@@ -1,7 +1,8 @@
 import math
 import torch
-import utils
 import torch.nn.functional as F
+
+from seq2seq import utils
 
 
 # Copyright (c) 2017-present, Facebook, Inc.

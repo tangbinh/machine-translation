@@ -3,13 +3,15 @@ import logging
 import os
 import torch
 import torch.nn as nn
-import utils
 
-from dataset import TranslationDataset, BatchSampler
-from dictionary import Dictionary
-from generator import SequenceGenerator
 from preprocess import word_tokenize
-from model import LSTMModel
+
+from seq2seq import models, utils
+from seq2seq.data.dataset import Seq2SeqDataset, BatchSampler
+from seq2seq.data.dictionary import Dictionary
+from seq2seq.generator import SequenceGenerator
+from seq2seq.models import Seq2SeqModel
+
 from tqdm import tqdm
 from torch.serialization import default_restore_location
 from termcolor import colored
@@ -53,7 +55,7 @@ def main(args):
     logging.info('Loaded a target dictionary ({}) with {} words'.format(args.target_lang, len(tgt_dict)))
 
     # Load dataset
-    test_dataset = TranslationDataset(
+    test_dataset = Seq2SeqDataset(
         src_file=os.path.join(args.data, 'test.{}'.format(args.source_lang)),
         tgt_file=os.path.join(args.data, 'test.{}'.format(args.target_lang)),
         src_dict=src_dict, tgt_dict=tgt_dict)
@@ -65,7 +67,7 @@ def main(args):
             args.distributed_rank, shuffle=False, seed=args.seed))
 
     # Build model and criterion
-    model = LSTMModel(args, src_dict, tgt_dict).cuda()
+    model = models.build_model(args, src_dict, tgt_dict).cuda()
     model.load_state_dict(state_dict['model'])
     logging.info('Loaded a model from checkpoint {}'.format(args.checkpoint_path))
 

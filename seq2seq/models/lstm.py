@@ -2,18 +2,44 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import utils
+from seq2seq import utils
+from seq2seq.models import Seq2SeqModel, Seq2SeqEncoder, Seq2SeqDecoder
+from seq2seq.models import register_model, register_model_architecture
 
 
-class LSTMModel(nn.Module):
-    def __init__(self, args, src_dict, tgt_dict):
-        super().__init__()
+@register_model('lstm')
+class LSTMModel(Seq2SeqModel):
+    def __init__(self, encoder, decoder):
+        super().__init__(encoder, decoder)
+
+    @staticmethod
+    def add_args(parser):
+        """Add model-specific arguments to the parser."""
+        parser.add_argument('--encoder-embed-dim', type=int, help='encoder embedding dimension')
+        parser.add_argument('--encoder-embed-path', help='path to pre-trained encoder embedding')
+        parser.add_argument('--encoder-hidden-size', type=int, help='encoder hidden size')
+        parser.add_argument('--encoder-num-layers', type=int, help='number of encoder layers')
+        parser.add_argument('--encoder-bidirectional', help='bidirectional encoder')
+        parser.add_argument('--encoder-dropout-in', help='dropout probability for encoder input embedding')
+        parser.add_argument('--encoder-dropout-out', help='dropout probability for encoder output')
+
+        parser.add_argument('--decoder-embed-dim', type=int, help='decoder embedding dimension')
+        parser.add_argument('--decoder-embed-path', help='path to pre-trained decoder embedding')
+        parser.add_argument('--decoder-hidden-size', type=int, help='decoder hidden size')
+        parser.add_argument('--decoder-num-layers', type=int, help='number of decoder layers')
+        parser.add_argument('--decoder-dropout-in', type=float, help='dropout probability for decoder input embedding')
+        parser.add_argument('--decoder-dropout-out', type=float, help='dropout probability for decoder output')
+        parser.add_argument('--decoder-use-attention', help='decoder attention')
+
+    @classmethod
+    def build_model(cls, args, src_dict, tgt_dict):
+        base_architecture(args)
         if args.encoder_embed_path:
             encoder_pretrained_embedding = utils.load_embedding(args.encoder_embed_path, src_dict)
         if args.decoder_embed_path:
             decoder_pretrained_embedding = utils.load_embedding(args.decoder_embed_path, tgt_dict)
 
-        self.encoder = LSTMEncoder(
+        encoder = LSTMEncoder(
             dictionary=src_dict,
             embed_dim=args.encoder_embed_dim,
             hidden_size=args.encoder_hidden_size,
@@ -24,7 +50,7 @@ class LSTMModel(nn.Module):
             pretrained_embedding=encoder_pretrained_embedding if args.encoder_embed_path else None,
         )
 
-        self.decoder = LSTMDecoder(
+        decoder = LSTMDecoder(
             dictionary=tgt_dict,
             embed_dim=args.decoder_embed_dim,
             hidden_size=args.decoder_hidden_size,
@@ -34,20 +60,15 @@ class LSTMModel(nn.Module):
             pretrained_embedding=decoder_pretrained_embedding if args.decoder_embed_path else None,
             use_attention=bool(eval(args.decoder_use_attention)),
         )
-
-    def forward(self, src_tokens, src_lengths, tgt_inputs):
-        encoder_out = self.encoder(src_tokens, src_lengths)
-        decoder_out = self.decoder(tgt_inputs, encoder_out)
-        return decoder_out
+        return cls(encoder, decoder)
 
 
-class LSTMEncoder(nn.Module):
+class LSTMEncoder(Seq2SeqEncoder):
     def __init__(
         self, dictionary, embed_dim=512, hidden_size=512, num_layers=1, bidirectional=True,
         dropout_in=0.1, dropout_out=0.1, pretrained_embedding=None
     ):
-        super().__init__()
-        self.dictionary = dictionary
+        super().__init__(dictionary)
         self.dropout_in = dropout_in
         self.dropout_out = dropout_out
         self.bidirectional = bidirectional
@@ -126,13 +147,12 @@ class AttentionLayer(nn.Module):
         return x, attn_scores
 
 
-class LSTMDecoder(nn.Module):
+class LSTMDecoder(Seq2SeqDecoder):
     def __init__(
         self, dictionary, embed_dim=512, hidden_size=512, num_layers=1,
         dropout_in=0.1, dropout_out=0.1, pretrained_embedding=None, use_attention=True,
     ):
-        super().__init__()
-        self.dictionary = dictionary
+        super().__init__(dictionary)
         self.dropout_in = dropout_in
         self.dropout_out = dropout_out
         self.hidden_size = hidden_size
@@ -217,12 +237,21 @@ class LSTMDecoder(nn.Module):
         x = self.final_proj(x)
         return x, attn_scores
 
-    def reorder_incremental_state(self, incremental_state, new_order):
-        """Reorder incremental state. This should be called when the order of the input has changed from the previous
-        time step. A typical use case is beam search, where the input order changes between time steps based on the
-        selection of beams.
-        """
-        def apply_reorder_incremental_state(module):
-            if module != self and hasattr(module, 'reorder_incremental_state'):
-                module.reorder_incremental_state(incremental_state, new_order)
-        self.apply(apply_reorder_incremental_state)
+
+@register_model_architecture('lstm', 'lstm')
+def base_architecture(args):
+    args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 512)
+    args.encoder_embed_path = getattr(args, 'encoder_embed_path', None)
+    args.encoder_hidden_size = getattr(args, 'encoder_hidden_size', 512)
+    args.encoder_num_layers = getattr(args, 'encoder_num_layers', 2)
+    args.encoder_bidirectional = getattr(args, 'encoder_bidirectional', 'True')
+    args.encoder_dropout_in = getattr(args, 'encoder_dropout_in', 0.1)
+    args.encoder_dropout_out = getattr(args, 'encoder_dropout_out', 0.1)
+
+    args.decoder_embed_dim = getattr(args, 'decoder_embed_dim', 512)
+    args.decoder_embed_path = getattr(args, 'decoder_embed_path', None)
+    args.decoder_hidden_size = getattr(args, 'decoder_hidden_size', 1024)
+    args.decoder_num_layers = getattr(args, 'decoder_num_layers', 1)
+    args.decoder_dropout_in = getattr(args, 'decoder_dropout_in', 0.1)
+    args.decoder_dropout_out = getattr(args, 'decoder_dropout_out', 0.1)
+    args.decoder_use_attention = getattr(args, 'decoder_use_attention', 'True')

@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
 
 
-class TranslationDataset(Dataset):
+class Seq2SeqDataset(Dataset):
     def __init__(self, src_file, tgt_file, src_dict, tgt_dict):
         self.src_dict, self.src_dict = src_dict, tgt_dict
         with open(src_file, 'rb') as f:
