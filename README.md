@@ -1,6 +1,8 @@
 ### Overview
 This repository contains PyTorch implementations of sequence to sequence models for machine translation. The code is based on [fairseq](https://github.com/pytorch/fairseq) and purportedly made simple for the sake of readability, although main features such as multi-GPU training and beam search remain intact. The implemented model is a classic LSTM-based encoder-decoder model with attention mechanism, which performs robustly well on several machine translation datasets.
 
+<img src="images/seq2seq.pdf" alt="drawing"/>
+
 ### Installation
 The code was written for Python 3.6 or higher, and it has been tested with [PyTorch](http://pytorch.org/) 0.4.1. Training is only available with GPU. To get started, try to clone the repository
 
@@ -8,7 +10,6 @@ The code was written for Python 3.6 or higher, and it has been tested with [PyTo
 git clone https://github.com/tangbinh/machine-translation
 cd machine-translation
 ```
-
 
 ### Preprocessing
 To download the IWSLT'14 DE-EN dataset and perform tokenization, it might be easier to just run:
