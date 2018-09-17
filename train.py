@@ -10,7 +10,7 @@ from tqdm import tqdm
 from seq2seq import models, utils
 from seq2seq.data.dictionary import Dictionary
 from seq2seq.data.dataset import Seq2SeqDataset, BatchSampler
-from seq2seq.models import ARCH_MODEL_REGISTRY, ARCH_CONFIG_REGISTRY
+from seq2seq.models import ARCH_MODEL_REGISTRY
 
 
 def get_args():
@@ -47,7 +47,13 @@ def get_args():
     parser.add_argument('--no-save', action='store_true', help='don\'t save models or checkpoints')
     parser.add_argument('--epoch-checkpoints', action='store_true', help='store all epoch checkpoints')
 
-    return parser.parse_args()
+    # Parse twice as model arguments are not known the first time
+    args, _ = parser.parse_known_args()
+    model_parser = parser.add_argument_group(argument_default=argparse.SUPPRESS)
+    ARCH_MODEL_REGISTRY[args.arch].add_args(model_parser)
+    args = parser.parse_args()
+    ARCH_CONFIG_REGISTRY[args.arch](args)
+    return args
 
 
 def main(args):
