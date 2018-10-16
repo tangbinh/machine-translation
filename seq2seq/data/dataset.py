@@ -10,7 +10,7 @@ from torch.utils.data.sampler import Sampler
 
 class Seq2SeqDataset(Dataset):
     def __init__(self, src_file, tgt_file, src_dict, tgt_dict):
-        self.src_dict, self.src_dict = src_dict, tgt_dict
+        self.src_dict, self.tgt_dict = src_dict, tgt_dict
         with open(src_file, 'rb') as f:
             self.src_dataset = pickle.load(f)
             self.src_sizes = np.array([len(tokens) for tokens in self.src_dataset])
