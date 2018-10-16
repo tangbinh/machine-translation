@@ -94,6 +94,4 @@ def make_binary_dataset(input_file, output_file, dictionary, tokenize=word_token
 if __name__ == '__main__':
     args = get_args()
     utils.init_logging(args)
-    logging.info('COMMAND: %s' % ' '.join(sys.argv))
-    logging.info('Arguments: {}'.format(vars(args)))
     main(args)
