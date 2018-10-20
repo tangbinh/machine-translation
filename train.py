@@ -10,7 +10,7 @@ from tqdm import tqdm
 from seq2seq import models, utils
 from seq2seq.data.dictionary import Dictionary
 from seq2seq.data.dataset import Seq2SeqDataset, BatchSampler
-from seq2seq.models import ARCH_MODEL_REGISTRY
+from seq2seq.models import ARCH_MODEL_REGISTRY, ARCH_CONFIG_REGISTRY
 
 
 def get_args():
