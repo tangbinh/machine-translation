@@ -2,7 +2,6 @@ import argparse
 import collections
 import logging
 import os
-import sys
 import re
 import pickle
 

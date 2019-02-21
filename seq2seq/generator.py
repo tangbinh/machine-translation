@@ -2,8 +2,6 @@ import math
 import torch
 import torch.nn.functional as F
 
-from seq2seq import utils
-
 
 # Copyright (c) 2017-present, Facebook, Inc.
 class SequenceGenerator(object):
@@ -230,7 +228,7 @@ class SequenceGenerator(object):
             # and values < cand_size indicate candidate active hypos.
             # After, the min values per row are the top candidate active hypos
             active_mask = buffer('active_mask')
-            torch.add(eos_mask.type_as(cand_offsets)*cand_size, cand_offsets[:eos_mask.size(1)], out=active_mask)
+            torch.add(eos_mask.type_as(cand_offsets) * cand_size, cand_offsets[:eos_mask.size(1)], out=active_mask)
 
             # get the top beam_size active hypotheses, which are just the hypos
             # with the smallest values in active_mask
@@ -243,14 +241,14 @@ class SequenceGenerator(object):
             active_scores = active_scores.view(-1)
 
             # copy tokens and scores for active hypotheses
-            torch.index_select(tokens[:, :step+1], dim=0, index=active_bbsz_idx, out=tokens_buf[:, :step+1])
-            torch.gather(cand_indices, dim=1, index=active_hypos, out=tokens_buf.view(bsz, beam_size, -1)[:, :, step+1])
+            torch.index_select(tokens[:, :step + 1], dim=0, index=active_bbsz_idx, out=tokens_buf[:, :step + 1])
+            torch.gather(cand_indices, dim=1, index=active_hypos, out=tokens_buf.view(bsz, beam_size, -1)[:, :, step + 1])
             if step > 0:
                 torch.index_select(scores[:, :step], dim=0, index=active_bbsz_idx, out=scores_buf[:, :step])
             torch.gather(cand_scores, dim=1, index=active_hypos, out=scores_buf.view(bsz, beam_size, -1)[:, :, step])
 
             # copy attention for active hypotheses
-            torch.index_select(attn[:, :, :step+2], dim=0, index=active_bbsz_idx, out=attn_buf[:, :, :step+2])
+            torch.index_select(attn[:, :, :step + 2], dim=0, index=active_bbsz_idx, out=attn_buf[:, :, :step + 2])
 
             # swap buffers
             tokens, tokens_buf = tokens_buf, tokens
@@ -271,6 +269,8 @@ class SequenceGenerator(object):
             decoder_out = list(self.model.decoder(tokens, encoder_out, incremental_state=incremental_states))
             decoder_out[0] = decoder_out[0][:, -1, :]
             attn = decoder_out[1]
+            if type(attn) is dict:
+                attn = attn['attn']
             if attn is not None:
                 attn = attn[:, -1, :]
 

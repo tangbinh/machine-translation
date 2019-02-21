@@ -2,7 +2,6 @@ import argparse
 import logging
 import os
 import torch
-import torch.nn as nn
 
 from preprocess import word_tokenize
 
@@ -10,7 +9,6 @@ from seq2seq import models, utils
 from seq2seq.data.dataset import Seq2SeqDataset, BatchSampler
 from seq2seq.data.dictionary import Dictionary
 from seq2seq.generator import SequenceGenerator
-from seq2seq.models import Seq2SeqModel
 
 from tqdm import tqdm
 from torch.serialization import default_restore_location

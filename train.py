@@ -6,6 +6,7 @@ import random
 import torch
 import torch.nn as nn
 
+from itertools import chain
 from tqdm import tqdm
 from seq2seq import models, utils
 from seq2seq.data.dictionary import Dictionary
@@ -28,7 +29,7 @@ def get_args():
     parser.add_argument('--num-workers', default=4, type=int, help='number of data workers')
 
     # Add model arguments
-    parser.add_argument('--arch', default='lstm', choices=ARCH_MODEL_REGISTRY.keys(), help='model architecture')
+    parser.add_argument('--arch', default='transformer', choices=ARCH_MODEL_REGISTRY.keys(), help='model architecture')
 
     # Add optimization arguments
     parser.add_argument('--max-epoch', default=100, type=int, help='force stop training at specified epoch')
@@ -86,7 +87,7 @@ def main(args):
     # Build model and criterion
     model = models.build_model(args, src_dict, tgt_dict).cuda()
     logging.info('Built a model with {} parameters'.format(sum(p.numel() for p in model.parameters())))
-    criterion = nn.CrossEntropyLoss(ignore_index=src_dict.pad_idx, reduction='sum').cuda()
+    criterion = nn.CrossEntropyLoss(ignore_index=src_dict.pad_idx, size_average=False).cuda()
 
     # Build an optimizer and a learning rate schedule
     optimizer = torch.optim.SGD(model.parameters(), args.lr, args.momentum, weight_decay=args.weight_decay, nesterov=True)
@@ -121,8 +122,8 @@ def main(args):
             # Reduce gradients across all GPUs
             if args.distributed_world_size > 1:
                 utils.reduce_grads(model.parameters())
-                total_loss, num_tokens, batch_size = list(map(sum, zip(*utils.all_gather_list([
-                    loss.item(), sample['num_tokens'], len(sample['src_tokens'])]))))
+                total_loss, num_tokens, batch_size = list(map(sum, zip(*utils.all_gather_list(
+                    [loss.item(), sample['num_tokens'], len(sample['src_tokens'])]))))
             else:
                 total_loss, num_tokens, batch_size = loss.item(), sample['num_tokens'], len(sample['src_tokens'])
 

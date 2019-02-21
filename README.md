@@ -1,5 +1,7 @@
 ### Overview
-This repository contains PyTorch implementations of sequence to sequence models for machine translation. The code is based on [fairseq](https://github.com/pytorch/fairseq) and purportedly made simple for the sake of readability, although main features such as multi-GPU training and beam search remain intact. The implemented model is a classic LSTM-based encoder-decoder model with attention mechanism, which performs robustly well on several machine translation datasets.
+This repository contains PyTorch implementations of sequence to sequence models for machine translation. The code is based on [fairseq](https://github.com/pytorch/fairseq) and purportedly made simple for the sake of readability, although main features such as multi-GPU training and beam search remain intact.
+
+Two encoder-decoder models are implemented in this repository: a classic model based on LSTM networks with attention mechanism [(Bahdanau et al.)](https://arxiv.org/abs/1409.0473) and Transformer, a recently favored model built entirely from self-attention [(Vaswani et al.)](https://arxiv.org/abs/1706.03762).
 
 <img src="images/seq2seq.png" alt="drawing"/>
 
@@ -25,14 +27,14 @@ python preprocess.py --source-lang de --target-lang en --train-prefix $DATA_PATH
 ### Training
 To get started with training a model on SQuAD, you might find the following commands helpful:
 ```bash
-python train.py --data data-bin/iwslt14.tokenized.de-en --source-lang de --target-lang en --lr 0.25 --clip-norm 0.1 --max-tokens 12000 --save-dir checkpoints/lstm
+python train.py --data data-bin/iwslt14.tokenized.de-en --source-lang de --target-lang en --lr 0.25 --clip-norm 0.1 --max-tokens 12000 --save-dir checkpoints/transformer
 ```
 
 ### Prediction
 When the training is done, you can make predictions and compute BLEU scores:
 ```bash
-python generate.py --data data-bin/iwslt14.tokenized.de-en --checkpoint-path checkpoints/lstm/checkpoint_best.pt > /tmp/lstm.out
-grep ^H /tmp/lstm.out | cut -f2- | sed -r 's/'$(echo -e "\033")'\[[0-9]{1,2}(;([0-9]{1,2})?)?[mK]//g' > /tmp/lstm.sys
-grep ^T /tmp/lstm.out | cut -f2- | sed -r 's/'$(echo -e "\033")'\[[0-9]{1,2}(;([0-9]{1,2})?)?[mK]//g' > /tmp/lstm.ref
-python score.py --reference /tmp/lstm.ref --system /tmp/lstm.sys
+python generate.py --data data-bin/iwslt14.tokenized.de-en --checkpoint-path checkpoints/transformer/checkpoint_best.pt > /tmp/lstm.out
+grep ^H /tmp/lstm.out | cut -f2- | sed -r 's/'$(echo -e "\033")'\[[0-9]{1,2}(;([0-9]{1,2})?)?[mK]//g' > /tmp/transformer.sys
+grep ^T /tmp/lstm.out | cut -f2- | sed -r 's/'$(echo -e "\033")'\[[0-9]{1,2}(;([0-9]{1,2})?)?[mK]//g' > /tmp/transformer.ref
+python score.py --reference /tmp/transformer.ref --system /tmp/transformer.sys
 ```

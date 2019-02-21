@@ -2,7 +2,6 @@ import os
 import logging
 import pickle
 import torch
-import torch.nn as nn
 import sys
 import preprocess
 
@@ -10,18 +9,16 @@ from collections import defaultdict
 from torch.serialization import default_restore_location
 
 
-def load_embedding(embed_path, dictionary):
+def load_embedding(embed_path, dictionary, embedding):
     """Parse an embedding text file into an torch.nn.Embedding layer."""
     embed_dict, embed_dim = {}, None
     with open(embed_path) as file:
-        embed_dim = int(next(file).rstrip().split(" ")[1])
         for line in file:
             tokens = line.rstrip().split(" ")
+            embed_dim = len(tokens[1:]) if embed_dim is None else embed_dim
             embed_dict[tokens[0]] = torch.Tensor([float(weight) for weight in tokens[1:]])
 
-    logging.info('Loaded {} / {} word embeddings'.format(
-        len(set(embed_dict.keys()) & set(dictionary.words)), len(embed_dict)))
-    embedding = nn.Embedding(len(dictionary), embed_dim, dictionary.pad_idx)
+    logging.info('Loaded {} / {} word embeddings'.format(len(set(embed_dict.keys()) & set(dictionary.words)), len(embed_dict)))
     for idx, word in enumerate(dictionary.words):
         if word in embed_dict:
             embedding.weight.data[idx] = embed_dict[word]
@@ -187,3 +184,21 @@ def replace_unk(hypo_str, src_str, alignment, unk):
 
 def strip_pad(tensor, pad):
     return tensor[tensor.ne(pad)]
+
+
+def make_positions(tensor, pad_idx):
+    """Replace non-padding symbols with their position numbers. Position numbers begin at pad_idx + 1."""
+    max_pos = pad_idx + 1 + tensor.size(1)
+    if not hasattr(make_positions, 'range_buf'):
+        make_positions.range_buf = tensor.new()
+    make_positions.range_buf = make_positions.range_buf.type_as(tensor)
+    if make_positions.range_buf.numel() < max_pos:
+        torch.arange(pad_idx + 1, max_pos, out=make_positions.range_buf)
+    mask = tensor.ne(pad_idx)
+    positions = make_positions.range_buf[:tensor.size(1)].expand_as(tensor)
+    return tensor.clone().masked_scatter_(mask, positions[mask])
+
+
+def fill_with_neg_inf(t):
+    """FP16-compatible function that fills a tensor with -inf."""
+    return t.float().fill_(float('-inf')).type_as(t)

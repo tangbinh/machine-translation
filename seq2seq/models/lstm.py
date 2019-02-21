@@ -34,30 +34,31 @@ class LSTMModel(Seq2SeqModel):
     @classmethod
     def build_model(cls, args, src_dict, tgt_dict):
         base_architecture(args)
-        if args.encoder_embed_path:
-            encoder_pretrained_embedding = utils.load_embedding(args.encoder_embed_path, src_dict)
-        if args.decoder_embed_path:
-            decoder_pretrained_embedding = utils.load_embedding(args.decoder_embed_path, tgt_dict)
+        def build_embedding(dictionary, embed_dim, path=None):
+            embedding = nn.Embedding(len(dictionary), embed_dim, padding_idx=dictionary.pad_idx)
+            if path is not None:
+                utils.load_embedding(path, dictionary, embedding)
+            return embedding
+        encoder_embedding = build_embedding(src_dict, args.encoder_embed_dim, args.encoder_embed_path)
+        decoder_embedding = build_embedding(tgt_dict, args.decoder_embed_dim, args.decoder_embed_path)
 
         encoder = LSTMEncoder(
             dictionary=src_dict,
-            embed_dim=args.encoder_embed_dim,
+            embedding=encoder_embedding,
             hidden_size=args.encoder_hidden_size,
             num_layers=args.encoder_num_layers,
             bidirectional=args.encoder_bidirectional,
             dropout_in=args.encoder_dropout_in,
             dropout_out=args.encoder_dropout_out,
-            pretrained_embedding=encoder_pretrained_embedding if args.encoder_embed_path else None,
         )
 
         decoder = LSTMDecoder(
             dictionary=tgt_dict,
-            embed_dim=args.decoder_embed_dim,
+            embedding=decoder_embedding,
             hidden_size=args.decoder_hidden_size,
             num_layers=args.decoder_num_layers,
             dropout_in=args.decoder_dropout_in,
             dropout_out=args.decoder_dropout_out,
-            pretrained_embedding=decoder_pretrained_embedding if args.decoder_embed_path else None,
             use_attention=bool(eval(args.decoder_use_attention)),
         )
         return cls(encoder, decoder)
@@ -65,23 +66,19 @@ class LSTMModel(Seq2SeqModel):
 
 class LSTMEncoder(Seq2SeqEncoder):
     def __init__(
-        self, dictionary, embed_dim=512, hidden_size=512, num_layers=1, bidirectional=True,
-        dropout_in=0.1, dropout_out=0.1, pretrained_embedding=None
+        self, dictionary, embedding, hidden_size=512, num_layers=1, bidirectional=True,
+        dropout_in=0.1, dropout_out=0.1
     ):
         super().__init__(dictionary)
+        self.embedding = embedding
         self.dropout_in = dropout_in
         self.dropout_out = dropout_out
         self.bidirectional = bidirectional
         self.hidden_size = hidden_size
         self.output_dim = 2 * hidden_size if bidirectional else hidden_size
 
-        if pretrained_embedding is not None:
-            self.embedding = pretrained_embedding
-        else:
-            self.embedding = nn.Embedding(len(dictionary), embed_dim, dictionary.pad_idx)
-
         self.lstm = nn.LSTM(
-            input_size=embed_dim,
+            input_size=embedding.embedding_dim,
             hidden_size=hidden_size,
             num_layers=num_layers,
             dropout=self.dropout_out if num_layers > 1 else 0.,
@@ -149,24 +146,19 @@ class AttentionLayer(nn.Module):
 
 class LSTMDecoder(Seq2SeqDecoder):
     def __init__(
-        self, dictionary, embed_dim=512, hidden_size=512, num_layers=1,
+        self, dictionary, embedding, hidden_size=512, num_layers=1,
         dropout_in=0.1, dropout_out=0.1, pretrained_embedding=None, use_attention=True,
     ):
         super().__init__(dictionary)
+        self.embedding = embedding
         self.dropout_in = dropout_in
         self.dropout_out = dropout_out
         self.hidden_size = hidden_size
 
-        if pretrained_embedding is not None:
-            self.embedding = pretrained_embedding
-        else:
-            self.embedding = nn.Embedding(len(dictionary), embed_dim, dictionary.pad_idx)
-
         self.attention = AttentionLayer(hidden_size, hidden_size) if use_attention else None
-
         self.layers = nn.ModuleList([
             nn.LSTMCell(
-                input_size=hidden_size + embed_dim if layer == 0 else hidden_size,
+                input_size=hidden_size + embedding.embedding_dim if layer == 0 else hidden_size,
                 hidden_size=hidden_size,
             ) for layer in range(num_layers)
         ])
